@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Виртуальный Класс</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lobster&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- Общие стили --- */
+        body { font-family: Arial, sans-serif; background-color: #f0f2f5; padding: 0; margin: 0; }
+        
+        /* --- Система Экранов --- */
+        .screen { display: none; width: 100%; min-height: 100vh; box-sizing: border-box; }
+        .screen.active { display: block; }
+
+        /* --- 1. СТИЛИ ДЛЯ "ЛОББИ КЛАССОВ" (ЭКРАН 1) --- */
+        #lobby-screen {
+            background-image: url('https://i.ibb.co/8gcPcQZK/Chat-GPT-Image-7-2025-11-13-19.png');
+            background-size: cover;
+            background-position: center;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative; /* Добавлено для позиционирования футера */
+        }
+        #lobby-screen h1 {
+            font-family: 'Lobster', cursive;
+            font-size: 4.5em;
+            color: white;
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+            margin: 20px 0;
+        }
+        #class-grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 25px;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .class-card {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .class-card:hover { transform: translateY(-5px); background: rgba(0, 0, 0, 0.6); }
+        .class-card h3 { font-size: 1.6em; margin-top: 0; }
+        .class-card-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; }
+        .class-card-controls button { background: rgba(255, 255, 255, 0.2); border: none; color: white; border-radius: 5px; cursor: pointer; width: 30px; height: 30px; font-size: 1.1em; }
+        .class-card-controls button:hover { background: rgba(255, 255, 255, 0.4); }
+        .add-new-card {
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.8em;
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .add-new-card:hover { background: rgba(0, 0, 0, 0.5); color: white; }
+        
+        /* --- НОВЫЙ СТИЛЬ: Футер с информацией об авторе --- */
+        #developer-info {
+            position: absolute;
+            bottom: 15px;
+            right: 20px;
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.5);
+            text-align: right;
+            max-width: 300px;
+        }
+        #developer-info a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+        }
+        #developer-info a:hover {
+            text-decoration: underline;
+        }
+        
+        /* --- 2. СТИЛИ ДЛЯ "КЛАССА" (ЭКРАН 2) --- */
+        #classroom-screen { padding: 20px; }
+        .app-container { display: flex; align-items: flex-start; gap: 20px; max-width: 1600px; margin: 0 auto; }
+        .board { flex: 3; max-width: 1200px; margin: 0; background-color: #3a5a40; border: 10px solid #8B4513; border-radius: 10px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); min-height: 950px; position: relative; }
+        
+        /* --- Панель Инструментов --- */
+        #toggle-tools-btn { position: absolute; top: 20px; right: 20px; width: 50px; height: 50px; border-radius: 50%; font-size: 2em; background: rgba(0,0,0,0.5); color: white; border: none; cursor: pointer; z-index: 101; }
+        #teacher-tools-panel {
+            position: absolute; top: 80px; right: 20px; background-color: rgba(0, 0, 0, 0.7); padding: 10px;
+            border-radius: 8px; text-align: right; color: white; z-index: 100; width: 220px;
+            transition: transform 0.3s ease, opacity 0.3s ease; transform: translateX(110%);
+            opacity: 0; display: none;
+        }
+        #teacher-tools-panel.visible { display: block; transform: translateX(0); opacity: 1; }
+        #timer-display { font-size: 2.0em; font-weight: bold; color: #f1c40f; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); }
+        .timer-controls { display: flex; justify-content: space-between; margin-bottom: 5px;}
+        .timer-controls input { width: 40px; }
+        .timer-controls button { background-color: #2196F3; color: white; border: none; cursor: pointer; padding: 5px 8px; border-radius: 3px; }
+        #teacher-tools-panel button { display: block; width: 100%; background-color: #f39c12; color: white; border: none; cursor: pointer; padding: 8px; border-radius: 5px; margin-top: 6px; font-weight: bold; text-align: left; padding-left: 10px; }
+        #edit-mode-btn { background-color: #f39c12; }
+        #paste-list-btn { background-color: #16a085; display: none; }
+        .board.edit-mode-active #paste-list-btn { display: block; }
+        #show-lesson-btn { background-color: #9b59b6; }
+        #show-chalkboard-btn { background-color: #2c3e50; }
+        #ai-assistant-btn { background-color: #8e44ad; }
+        #random-student-btn { background-color: #e67e22; }
+        #group-mode-btn { background-color: #3498db; }
+        #voting-mode-btn { background-color: #1abc9c; }
+        #reset-lesson-btn { background-color: #e74c3c; }
+
+        /* --- Кнопка "Назад в Лобби" --- */
+        #back-to-lobby-btn { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px 15px; font-size: 1.2em; border-radius: 8px; cursor: pointer; z-index: 100; }
+        /* --- Тема Урока --- */
+        #lesson-info-board { position: absolute; top: 80px; left: 20px; background-color: rgba(0, 0, 0, 0.6); color: white; padding: 10px; border-radius: 8px; width: 300px; z-index: 99; }
+        #lesson-info-board h3, #lesson-info-board h2 { margin: 5px 0; padding: 2px; border: 2px solid transparent; }
+        #lesson-info-board h3[contenteditable="true"],
+        #lesson-info-board h2[contenteditable="true"] { background-color: #fff; color: #000; border: 2px dashed #f39c12; }
+
+        /* --- "Резиновая" Сетка учеников --- */
+        .student-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 130px;
+            position: relative;
+        }
+        .student-card { background-color: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); box-shadow: 0 2px 5px rgba(0,0,0,0.2); color: #ffffff; border-radius: 8px; padding: 10px; text-align: center; transition: all 0.3s ease; position: relative; }
+        
+        /* --- Аватар (Инициалы ИЛИ Фото) --- */
+        .avatar {
+            width: 70px; height: 70px; border-radius: 50%;
+            background-color: #3498db; color: white; font-size: 2em; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 10px auto; border: 3px solid white;
+            background-size: cover; background-position: center;
+        }
+        .student-card:nth-child(5n+1) .avatar { background-color: #e74c3c; }
+        .student-card:nth-child(5n+2) .avatar { background-color: #9b59b6; }
+        .student-card:nth-child(5n+3) .avatar { background-color: #2ecc71; }
+        .student-card:nth-child(5n+4) .avatar { background-color: #f1c40f; }
+        .student-card:nth-child(5n+5) .avatar { background-color: #e67e22; }
+
+        /* --- Кнопка загрузки фото --- */
+        .avatar-upload-label { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; border-radius: 50%; background: rgba(0,0,0,0.5); color: white; display: none; align-items: center; justify-content: center; cursor: pointer; font-size: 2em; }
+        .avatar-upload-input { display: none; }
+        .board.edit-mode-active .avatar-upload-label { display: flex; }
+        .student-card h4 { margin: 5px 0; font-size: 1.1em; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); border: 2px solid transparent; }
+        .student-card h4[contenteditable="true"] { background-color: rgba(255, 255, 0, 0.8); color: #000; text-shadow: none; }
+
+        /* --- Остальные стили карточек --- */
+        .score-display { font-size: 2.5em; font-weight: bold; color: #f1c40f; margin-bottom: 10px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        .score-controls { display: flex; justify-content: space-between; }
+        .add-score { background-color: #4CAF50; color: white; border: none; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .reaction-controls { margin-top: 5px; display: flex; justify-content: space-around; }
+        .react-btn { background-color: rgba(255, 255, 255, 0.2); border: 1px solid #fff; color: #fff; font-size: 1.1em; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; transition: background-color 0.2s; }
+        .react-btn:hover { background-color: rgba(255, 255, 255, 0.4); }
+        .student-card.highlight-random { box-shadow: 0 0 35px 15px #ffffff; transform: scale(1.1); z-index: 50; }
+        .student-card.group1 { border-color: #e74c3c; }
+        .student-card.group2 { border-color: #3498db; }
+        .student-card.group3 { border-color: #2ecc71; }
+        .student-card.group4 { border-color: #f1c40f; }
+        .student-card.react-read { box-shadow: 0 0 20px 5px #3498db; transform: scale(1.05); }
+        .student-card.react-speak { box-shadow: 0 0 20px 5px #2ecc71; transform: scale(1.05); }
+        .student-card.react-help { box-shadow: 0 0 20px 5px #e67e22; transform: scale(1.05); }
+        .student-card.react-yes { box-shadow: 0 0 20px 5px #2ecc71; }
+        .student-card.react-no { box-shadow: 0 0 20px 5px #e74c3c; }
+        .student-card.react-abstain { box-shadow: 0 0 20px 5px #f1c40f; }
+
+        /* --- Модальные Окна (общий стиль) --- */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); z-index: 100; justify-content: center; align-items: center; }
+        .modal-content { background-color: #fff; color: #333; padding: 20px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; }
+        .modal-close-btn { background-color: #e74c3c; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+
+        /* --- Модальное окно "Создать класс" и "Вставить список" --- */
+        #create-class-modal .modal-content, #paste-list-modal .modal-content { width: 500px; }
+        .modal-form label { display: block; margin-top: 15px; font-weight: bold; }
+        .modal-form input[type="text"], .modal-form input[type="number"], .modal-form textarea { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+        .modal-form button { background-color: #28a745; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; margin-top: 20px; font-size: 1.1em; }
+        #paste-list-textarea { height: 250px; }
+
+        /* --- "Экран Урока" (Медиа-центр) --- */
+        #lesson-modal .modal-content { width: 90vw; height: 90vh; }
+        .modal-tools { display: flex; flex-wrap: wrap; gap: 15px; padding: 10px 0; border-bottom: 1px solid #ccc; }
+        .modal-tools input[type="text"] { flex: 1; padding: 8px; min-width: 200px; }
+        .modal-tools button, .modal-tools label { background-color: #3498db; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 5px; }
+        #open-dictionary-btn { background-color: #16a085; }
+        #upload-video-label { background-color: #27ae60; }
+        #upload-pdf-label { background-color: #e67e22; }
+        #upload-video-input, #upload-pdf-input { display: none; }
+        .modal-body { display: flex; flex-grow: 1; gap: 15px; margin-top: 10px; overflow: hidden; }
+        #video-player-container { width: 50%; height: 100%; background-color: #000; display: flex; align-items: center; justify-content: center; }
+        #video-player-container iframe,
+        #video-player-container video,
+        #video-player-container object {
+            width: 100%; height: 100%; border: none;
+        }
+        #lesson-text-area { width: 50%; height: 100%; font-size: 1.2em; line-height: 1.6; padding: 10px; border: 1px solid #ccc; border-radius: 5px; resize: none; }
+        
+        /* --- "Меловая доска" --- */
+        #chalkboard-modal .modal-content { width: 90vw; height: 90vh; padding: 10px; }
+        .chalkboard-controls { display: flex; gap: 10px; padding-bottom: 10px; border-bottom: 2px solid #ccc; }
+        .chalkboard-controls button { background-color: #34495e; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 1em; }
+        .chalkboard-controls button.active { background-color: #e67e22; }
+        #chalkboard-canvas { width: 100%; height: calc(100% - 50px); background-color: #3a5a40; cursor: crosshair; }
+        
+        /* --- Итоги --- */
+        .results-sidebar { flex: 1; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: none; }
+        .results-sidebar h2 { margin-top: 0; text-align: center; color: #3a5a40; }
+        #results-list { list-style-type: none; padding: 0; margin: 0; }
+        #results-list li { padding: 10px; font-size: 1.1em; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        #results-list li span { font-weight: bold; color: #3a5a40; }
+        #show-results-btn { display: block; width: 50%; min-width: 250px; margin: 20px auto; padding: 15px; font-size: 1.2em; font-weight: bold; color: #ffffff; background-color: #2196F3; border: none; border-radius: 8px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="lobby-screen" class="screen active">
+        <h1>Виртуальный класс</h1>
+        <div id="class-grid-container">
+            <div class="class-card add-new-card" id="add-new-class-btn">
+                <div>+</div>
+            </div>
+        </div>
+        
+        <div id="developer-info">
+            Автор проекта: Сапарбаев Бақытжан Қалдыбайұлы.
+            <br>
+            При возникновении проблем, пишите: 
+            <a href="mailto:baqytjansaparbaev2002@gmail.com">baqytjansaparbaev2002@gmail.com</a>
+        </div>
+    </div>
+
+    <div id="classroom-screen" class="screen">
+        <div class="app-container">
+            <div class="board">
+                
+                <button id="back-to-lobby-btn">❮ К списку классов</button>
+                <button id="toggle-tools-btn">⚙️</button>
+                
+                <div id="teacher-tools-panel">
+                    <div id="timer-display">00:00</div>
+                    <div class="timer-controls">
+                        <input type="number" id="timer-input" value="45" min="1" max="90">
+                        <button id="start-timer-btn">Старт</button>
+                        <button id="reset-timer-btn">Сброс</button>
+                    </div>
+                    <button id="edit-mode-btn">✏️ Редактировать</button>
+                    <button id="paste-list-btn">📋 Вставить список</button>
+                    <button id="show-lesson-btn">🖥️ Экран Урока</button>
+                    <button id="show-chalkboard-btn">🎨 Меловая доска</button>
+                    <button id="ai-assistant-btn">🤖 ИИ-Ассистент</button>
+                    <button id="random-student-btn">🎲 Случайный ученик</button>
+                    <button id="group-mode-btn">👥 Разбить на группы</button>
+                    <button id="voting-mode-btn">📊 Режим голосования</button>
+                    <button id="reset-lesson-btn">🔄 Новый урок (Сброс)</button>
+                </div>
+                
+                <div id="lesson-info-board">
+                    <h3 id="lesson-date" contenteditable="false">Дата</h3>
+                    <h2 id="lesson-topic" contenteditable="false">Тема</h2>
+                </div>
+
+                <div class="student-grid" id="student-grid-main">
+                    </div>
+            </div>
+            
+            <div class="results-sidebar">
+                <h2>Итоги урока</h2>
+                <ul id="results-list"></ul>
+            </div>
+        </div>
+        <button id="show-results-btn">Показать итоги</button>
+    </div>
+
+    <div class="modal-overlay" id="lesson-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Медиа-центр Урока</h3>
+                <button class="modal-close-btn" data-modal-id="lesson-modal">Закрыть</button>
+            </div>
+            <div class="modal-tools">
+                <input type="text" id="youtube-link-input" placeholder="Вставьте любую ссылку YouTube...">
+                <button id="load-video-btn">▶️ Загрузить</button>
+                <button id="open-dictionary-btn">📚 Открыть Словарь</button>
+                <label for="upload-video-input" class="upload-video-label">💻 Видео с ПК</label>
+                <input type="file" id="upload-video-input" accept="video/*">
+                <label for="upload-pdf-input" class="upload-video-label" id="upload-pdf-label">📂 Загрузить PDF</label>
+                <input type="file" id="upload-pdf-input" accept="application/pdf">
+            </div>
+            <div class="modal-body">
+                <div id="video-player-container"><span>Медиа появится здесь...</span></div>
+                <textarea id="lesson-text-area" placeholder="Вставьте сюда текст урока..."></textarea>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="chalkboard-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Меловая доска</h3>
+                <div class="chalkboard-controls">
+                    <button id="chalk-tool" class="active">⚪ Мел</button>
+                    <button id="eraser-tool">🧽 Ластик</button>
+                    <button id="clear-chalkboard-btn">🗑️ Очистить</button>
+                </div>
+                <button class="modal-close-btn" data-modal-id="chalkboard-modal">Закрыть</button>
+            </div>
+            <canvas id="chalkboard-canvas"></canvas>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="create-class-modal">
+        <div class="modal-content">
+            <h3>Создать новый класс</h3>
+            <div class="modal-form">
+                <label for="class-name-input">Название класса:</label>
+                <input type="text" id="class-name-input" placeholder="Например, 5 'А'">
+                <label for="student-count-input">Количество учеников (10-30):</label>
+                <input type="number" id="student-count-input" value="18" min="10" max="30">
+                <button id="create-class-confirm-btn">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="paste-list-modal">
+        <div class="modal-content">
+            <h3>Вставить список учеников</h3>
+            <div class="modal-form">
+                <label for="paste-list-textarea">Вставьте список (каждое имя с новой строки):</label>
+                <textarea id="paste-list-textarea"></textarea>
+                <button id="paste-list-confirm-btn">Загрузить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ПРИЛОЖЕНИЯ ---
+        let appData = {};
+        let currentClassId = null;
+        
+        let isEditingNames = false;
+        let isGroupMode = false;
+        let isVotingMode = false;
+        
+        let canvas, ctx, isDrawing = false, chalkColor = '#FFFFFF', chalkWidth = 5;
+        
+        let timerInterval;
+        let remainingSeconds = 45 * 60;
+        let timerDisplay;
+
+        // --- ГЛАВНАЯ ФУНКЦИЯ ИНИЦИАЛИЗАЦИИ ---
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- 0. ПОДКЛЮЧЕНИЕ ЭЛЕМЕНТОВ DOM ---
+            const lobbyScreen = document.getElementById('lobby-screen');
+            const classroomScreen = document.getElementById('classroom-screen');
+            const classGridContainer = document.getElementById('class-grid-container');
+            const addNewClassBtn = document.getElementById('add-new-class-btn');
+            
+            const board = document.querySelector('.board');
+            const studentGrid = document.getElementById('student-grid-main');
+            
+            const backToLobbyBtn = document.getElementById('back-to-lobby-btn');
+            
+            const toggleToolsBtn = document.getElementById('toggle-tools-btn');
+            const teacherToolsPanel = document.getElementById('teacher-tools-panel');
+            timerDisplay = document.getElementById('timer-display'); 
+            
+            const createClassModal = document.getElementById('create-class-modal');
+            const pasteListModal = document.getElementById('paste-list-modal');
+            
+            // --- 1. БАЗА ДАННЫХ (localStorage) ---
+            
+            function loadAppData() {
+                appData = JSON.parse(localStorage.getItem('virtualClassApp_v12')) || { classes: {} };
+            }
+            
+            function saveAppData() {
+                localStorage.setItem('virtualClassApp_v12', JSON.stringify(appData));
+            }
+            
+            function createDefaultStudent(index) {
+                return {
+                    id: `student_${index}`,
+                    name: `Ученик ${index + 1}`,
+                    avatar: null, 
+                    score: 0,
+                    activity: { read: 0, speak: 0, help: 0 }
+                };
+            }
+
+            // --- 2. ЛОГИКА ЭКРАНОВ ---
+
+            function switchScreen(screenToShow) {
+                [lobbyScreen, classroomScreen].forEach(screen => {
+                    screen.classList.remove('active');
+                });
+                screenToShow.classList.add('active');
+            }
+
+            // --- 3. ЛОББИ КЛАССОВ (ЭКРАН 1) ---
+
+            function renderLobby() {
+                classGridContainer.innerHTML = ''; 
+                const classes = appData.classes;
+                
+                for (const classId in classes) {
+                    const classData = classes[classId];
+                    const card = document.createElement('div');
+                    card.className = 'class-card';
+                    card.dataset.id = classId;
+                    card.innerHTML = `
+                        <h3>${classData.name}</h3>
+                        <p>${classData.students.length} учеников</p>
+                        <div class="class-card-controls">
+                            <button class="edit-class-btn" data-id="${classId}">✏️</button>
+                            <button class="delete-class-btn" data-id="${classId}">🗑️</button>
+                        </div>
+                    `;
+                    card.addEventListener('click', (e) => {
+                        if (e.target.closest('.class-card-controls')) return;
+                        openClassroom(classId);
+                    });
+                    classGridContainer.appendChild(card);
+                }
+                
+                document.querySelectorAll('.edit-class-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => handleEditClass(e.currentTarget.dataset.id));
+                });
+                document.querySelectorAll('.delete-class-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => handleDeleteClass(e.currentTarget.dataset.id));
+                });
+
+                classGridContainer.appendChild(addNewClassBtn);
+            }
+
+            addNewClassBtn.addEventListener('click', () => {
+                createClassModal.style.display = 'flex';
+            });
+            
+            document.getElementById('create-class-confirm-btn').addEventListener('click', () => {
+                const name = document.getElementById('class-name-input').value;
+                let count = parseInt(document.getElementById('student-count-input').value);
+                
+                if (count < 10) count = 10;
+                if (count > 30) count = 30;
+                
+                if (name && name.trim() !== '') {
+                    const classId = `class_${new Date().getTime()}`;
+                    const students = [];
+                    for (let i = 0; i < count; i++) {
+                        students.push(createDefaultStudent(i));
+                    }
+                    
+                    appData.classes[classId] = {
+                        id: classId,
+                        name: name.trim(),
+                        lessonInfo: { date: "Сегодняшняя дата", topic: "Тема Урока..." },
+                        chalkboardData: null,
+                        students: students
+                    };
+                    saveAppData();
+                    renderLobby();
+                    createClassModal.style.display = 'none';
+                    document.getElementById('class-name-input').value = '';
+                    document.getElementById('student-count-input').value = '18';
+                } else {
+                    alert('Пожалуйста, введите название класса.');
+                }
+            });
+            
+            function handleEditClass(classId) {
+                const oldName = appData.classes[classId].name;
+                const newName = prompt('Введите новое название класса:', oldName);
+                if (newName && newName.trim() !== '') {
+                    appData.classes[classId].name = newName.trim();
+                    saveAppData();
+                    renderLobby();
+                }
+            }
+
+            function handleDeleteClass(classId) {
+                const className = appData.classes[classId].name;
+                if (confirm(`Вы уверены, что хотите НАВСЕГДА удалить класс "${className}"?`)) {
+                    delete appData.classes[classId];
+                    saveAppData();
+                    renderLobby();
+                }
+            }
+            
+            // --- 4. КЛАССНАЯ ДОСКА (ЭКРАН 2) ---
+
+            function openClassroom(classId) {
+                currentClassId = classId;
+                loadClassroomData(classId); 
+                switchScreen(classroomScreen);
+            }
+            
+            backToLobbyBtn.addEventListener('click', () => {
+                saveClassroomData(); 
+                currentClassId = null;
+                switchScreen(lobbyScreen);
+                renderLobby(); 
+            });
+
+            function loadClassroomData(classId) {
+                const classData = appData.classes[classId];
+                if (!classData) return;
+                
+                document.getElementById('lesson-date').textContent = classData.lessonInfo.date;
+                document.getElementById('lesson-topic').textContent = classData.lessonInfo.topic;
+                
+                if (classData.chalkboardData) {
+                    const img = new Image();
+                    img.onload = () => {
+                        resizeCanvas();
+                        ctx.drawImage(img, 0, 0);
+                    };
+                    img.src = classData.chalkboardData;
+                } else {
+                    resizeCanvas();
+                }
+                
+                studentGrid.innerHTML = '';
+                classData.students.forEach((student, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'student-card';
+                    card.dataset.studentIndex = index;
+                    card.dataset.readCount = student.activity.read;
+                    card.dataset.speakCount = student.activity.speak;
+                    card.dataset.helpCount = student.activity.help;
+                    
+                    const avatar = document.createElement('div');
+                    avatar.className = 'avatar';
+                    updateAvatar(avatar, student.name, student.avatar);
+                    
+                    const uploadLabel = document.createElement('label');
+                    uploadLabel.className = 'avatar-upload-label';
+                    uploadLabel.innerHTML = '📷<input type="file" class="avatar-upload-input" accept="image/*">';
+                    
+                    card.innerHTML = `
+                        <h4 contenteditable="false">${student.name}</h4>
+                        <div class="score-display">${student.score}</div>
+                        <div class="score-controls">
+                            <button class="add-score" data-value="1">+1</button>
+                            <button class="add-score" data-value="2">+2</button>
+                            <button class="add-score" data-value="3">+3</button>
+                        </div>
+                        <div class="reaction-controls">
+                            <button class="react-btn" data-reaction="read" data-default-text="📖" data-default-reaction="read">📖</button>
+                            <button class="react-btn" data-reaction="speak" data-default-text="🗣️" data-default-reaction="speak">🗣️</button>
+                            <button class="react-btn" data-reaction="help" data-default-text="❓" data-default-reaction="help">❓</button>
+                        </div>
+                    `;
+                    card.prepend(avatar); 
+                    card.prepend(uploadLabel); 
+                    studentGrid.appendChild(card);
+                });
+                
+                resetAllModes();
+            }
+            
+            function saveClassroomData() {
+                if (!currentClassId) return;
+                const classData = appData.classes[currentClassId];
+                
+                classData.lessonInfo.date = document.getElementById('lesson-date').textContent;
+                classData.lessonInfo.topic = document.getElementById('lesson-topic').textContent;
+                
+                classData.chalkboardData = canvas.toDataURL();
+                
+                document.querySelectorAll('.student-card').forEach((card, index) => {
+                    const student = classData.students[index];
+                    if (student) {
+                        student.name = card.querySelector('h4').textContent;
+                        student.score = parseInt(card.querySelector('.score-display').textContent);
+                        student.activity.read = parseInt(card.dataset.readCount);
+                        student.activity.speak = parseInt(card.dataset.speakCount);
+                        student.activity.help = parseInt(card.dataset.helpCount);
+                    }
+                });
+                
+                saveAppData();
+            }
+
+            function updateAvatar(avatarElement, name, avatarBase64) {
+                if (avatarBase64) {
+                    avatarElement.style.backgroundImage = `url(${avatarBase64})`;
+                    avatarElement.textContent = '';
+                } else {
+                    avatarElement.style.backgroundImage = 'none';
+                    const parts = name.split(' ');
+                    let initials = '';
+                    if (parts.length > 1) {
+                        initials = parts[0].charAt(0) + parts[1].charAt(0);
+                    } else {
+                        initials = name.charAt(0);
+                    }
+                    avatarElement.textContent = initials.toUpperCase();
+                }
+            }
+            
+            function resetAllModes() {
+                teacherToolsPanel.classList.remove('visible');
+                isEditingNames = false;
+                document.getElementById('edit-mode-btn').textContent = '✏️ Редактировать';
+                document.getElementById('edit-mode-btn').style.backgroundColor = '#f39c12';
+                board.classList.remove('edit-mode-active');
+                
+                isGroupMode = false;
+                document.getElementById('group-mode-btn').textContent = '👥 Разбить на группы';
+                document.getElementById('group-mode-btn').style.backgroundColor = '#3498db';
+                
+                isVotingMode = false;
+                document.getElementById('voting-mode-btn').textContent = '📊 Режим голосования';
+                document.getElementById('voting-mode-btn').style.backgroundColor = '#1abc9c';
+                
+                document.querySelectorAll('.student-card').forEach(card => card.classList.remove('group1', 'group2', 'group3', 'group4'));
+                
+                document.querySelectorAll('.react-btn').forEach(btn => {
+                    btn.innerHTML = btn.dataset.defaultText;
+                    btn.dataset.reaction = btn.dataset.defaultReaction;
+                });
+                
+                document.querySelector('.results-sidebar').style.display = 'none';
+                document.getElementById('show-results-btn').textContent = "Показать итоги";
+            }
+
+            // --- 5. ОБРАБОТЧИКИ КЛАССА (ЭКРАН 2) ---
+            
+            studentGrid.addEventListener('click', function(e) {
+                const card = e.target.closest('.student-card');
+                if (!card) return;
+                
+                if (e.target.classList.contains('add-score')) {
+                    const value = parseInt(e.target.dataset.value);
+                    const scoreDisplay = card.querySelector('.score-display');
+                    let newScore = parseInt(scoreDisplay.textContent) + value;
+                    if (newScore > 10) newScore = 10;
+                    scoreDisplay.textContent = newScore;
+                }
+                
+                if (e.target.classList.contains('react-btn')) {
+                    const reaction = e.target.dataset.reaction;
+                    card.classList.remove('react-read', 'react-speak', 'react-help', 'react-yes', 'react-no', 'react-abstain');
+                    let glowClass = '';
+                    
+                    if (reaction === 'read') {
+                        glowClass = 'react-read';
+                        if (!isVotingMode) card.dataset.readCount = parseInt(card.dataset.readCount) + 1;
+                    } else if (reaction === 'speak') {
+                        glowClass = 'react-speak';
+                        if (!isVotingMode) card.dataset.speakCount = parseInt(card.dataset.speakCount) + 1;
+                    } else if (reaction === 'help') {
+                        glowClass = 'react-help';
+                        if (!isVotingMode) card.dataset.helpCount = parseInt(card.dataset.helpCount) + 1;
+                    } else if (reaction === 'vote-yes') glowClass = 'react-yes';
+                    else if (reaction === 'vote-no') glowClass = 'react-no';
+                    else if (reaction === 'vote-abstain') glowClass = 'react-abstain';
+                    
+                    if(glowClass) {
+                        card.classList.add(glowClass);
+                        setTimeout(() => { card.classList.remove(glowClass); }, 2000);
+                    }
+                }
+            });
+
+            studentGrid.addEventListener('change', function(e) {
+                if (e.target.classList.contains('avatar-upload-input')) {
+                    const card = e.target.closest('.student-card');
+                    const studentIndex = card.dataset.studentIndex;
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64String = reader.result;
+                        appData.classes[currentClassId].students[studentIndex].avatar = base64String;
+                        saveAppData();
+                        const avatarEl = card.querySelector('.avatar');
+                        updateAvatar(avatarEl, card.querySelector('h4').textContent, base64String);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            toggleToolsBtn.addEventListener('click', () => {
+                teacherToolsPanel.classList.toggle('visible');
+            });
+            
+            document.getElementById('edit-mode-btn').addEventListener('click', function() {
+                isEditingNames = !isEditingNames; 
+                if (isEditingNames) {
+                    this.textContent = '💾 Сохранить';
+                    this.style.backgroundColor = '#2ecc71'; 
+                    board.classList.add('edit-mode-active');
+                    document.querySelectorAll('.student-card h4, #lesson-date, #lesson-topic').forEach(el => {
+                        el.contentEditable = "true";
+                    });
+                } else {
+                    this.textContent = '✏️ Редактировать';
+                    this.style.backgroundColor = '#f39c12'; 
+                    board.classList.remove('edit-mode-active');
+                    document.querySelectorAll('.student-card h4, #lesson-date, #lesson-topic').forEach(el => {
+                        el.contentEditable = "false";
+                    });
+                    saveClassroomData();
+                    document.querySelectorAll('.student-card').forEach((card, index) => {
+                        const student = appData.classes[currentClassId].students[index];
+                        updateAvatar(card.querySelector('.avatar'), student.name, student.avatar);
+                    });
+                }
+            });
+            
+            document.getElementById('paste-list-btn').addEventListener('click', () => {
+                pasteListModal.style.display = 'flex';
+            });
+            document.getElementById('paste-list-confirm-btn').addEventListener('click', () => {
+                const text = document.getElementById('paste-list-textarea').value;
+                const names = text.split('\n').filter(name => name.trim() !== '');
+                
+                const allStudentCards = document.querySelectorAll('#student-grid-main h4');
+                names.forEach((name, index) => {
+                    if (index < allStudentCards.length) {
+                        allStudentCards[index].textContent = name.trim();
+                    }
+                });
+                
+                pasteListModal.style.display = 'none';
+                document.getElementById('paste-list-textarea').value = '';
+                document.getElementById('edit-mode-btn').click(); // Авто-сохранение
+            });
+
+            // "Экран Урока" (Медиа-центр)
+            const lessonModal = document.getElementById('lesson-modal');
+            const playerContainer = document.getElementById('video-player-container');
+            document.getElementById('show-lesson-btn').addEventListener('click', () => { lessonModal.style.display = 'flex'; });
+            
+            document.getElementById('load-video-btn').addEventListener('click', () => {
+                const url = document.getElementById('youtube-link-input').value;
+                let ID = '';
+                let urlObj = url.replace(/(>|<)/gi,'').split(/(vi\/|v=|\/v\/|youtu\.be\/|\/embed\/)/);
+                if (urlObj[2] !== undefined) {
+                    ID = urlObj[2].split(/[^0-9a-z_\-]/i);
+                    ID = ID[0];
+                } else {
+                    ID = url;
+                }
+                if (ID) {
+                    playerContainer.innerHTML = `<iframe src="https://www.youtube.com/embed/${ID}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+                } else {
+                    playerContainer.innerHTML = '<span>Неверная ссылка YouTube</span>';
+                }
+            });
+            document.getElementById('open-dictionary-btn').addEventListener('click', () => { window.open('https://gramota.ru', '_blank'); });
+            
+            document.getElementById('upload-video-input').addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const fileURL = URL.createObjectURL(file);
+                    playerContainer.innerHTML = `<video controls src="${fileURL}" type="${file.type}">Ваш браузер не поддерживает это видео.</video>`;
+                }
+            });
+            
+            document.getElementById('upload-pdf-input').addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const fileURL = URL.createObjectURL(file);
+                    playerContainer.innerHTML = `<object data="${fileURL}" type="application/pdf" width="100%" height="100%">
+                        <p>Ваш браузер не может отобразить PDF. <a href="${fileURL}">Скачать PDF</a>.</p>
+                    </object>`;
+                }
+            });
+
+            document.getElementById('random-student-btn').addEventListener('click', () => {
+                const allStudentCards = document.querySelectorAll('.student-card');
+                const randomIndex = Math.floor(Math.random() * allStudentCards.length);
+                const randomCard = allStudentCards[randomIndex];
+                randomCard.classList.add('highlight-random');
+                setTimeout(() => { randomCard.classList.remove('highlight-random'); }, 3000);
+            });
+
+            document.getElementById('group-mode-btn').addEventListener('click', function() {
+                const allStudentCards = document.querySelectorAll('.student-card');
+                isGroupMode = !isGroupMode;
+                if (isGroupMode) {
+                    const numGroups = 4;
+                    allStudentCards.forEach((card, index) => {
+                        card.classList.remove('group1', 'group2', 'group3', 'group4');
+                        const groupIndex = (index % numGroups) + 1;
+                        card.classList.add(`group${groupIndex}`);
+                    });
+                    this.textContent = '👥 Сбросить группы';
+                    this.style.backgroundColor = '#c0392b';
+                } else {
+                    allStudentCards.forEach(card => card.classList.remove('group1', 'group2', 'group3', 'group4'));
+                    this.textContent = '👥 Разбить на группы';
+                    this.style.backgroundColor = '#3498db';
+                }
+            });
+
+            document.getElementById('voting-mode-btn').addEventListener('click', function() {
+                isVotingMode = !isVotingMode;
+                const allReactButtons = document.querySelectorAll('.react-btn');
+                if (isVotingMode) {
+                    allReactButtons.forEach(btn => {
+                        const defaultReaction = btn.dataset.defaultReaction;
+                        if (defaultReaction === 'read') { btn.innerHTML = '👍'; btn.dataset.reaction = 'vote-yes'; }
+                        if (defaultReaction === 'speak') { btn.innerHTML = '👎'; btn.dataset.reaction = 'vote-no'; }
+                        if (defaultReaction === 'help') { btn.innerHTML = '🤔'; btn.dataset.reaction = 'vote-abstain'; }
+                    });
+                    this.textContent = '📊 Вернуть реакции';
+                    this.style.backgroundColor = '#16a085';
+                } else {
+                    allReactButtons.forEach(btn => {
+                        btn.innerHTML = btn.dataset.defaultText;
+                        btn.dataset.reaction = btn.dataset.defaultReaction;
+                    });
+                    this.textContent = '📊 Режим голосования';
+                    this.style.backgroundColor = '#1abc9c';
+                }
+            });
+            
+            document.getElementById('reset-lesson-btn').addEventListener('click', () => {
+                if (confirm('Вы уверены, что хотите сбросить ВСЕ баллы и активность для этого класса? Имена и фото останутся.')) {
+                    const classData = appData.classes[currentClassId];
+                    classData.students.forEach(student => {
+                        student.score = 0;
+                        student.activity = { read: 0, speak: 0, help: 0 };
+                    });
+                    classData.chalkboardData = null;
+                    
+                    saveAppData();
+                    loadClassroomData(currentClassId);
+                }
+            });
+
+            // ==========================================================
+            // === ИСПРАВЛЕНИЕ: "ПОКАЗАТЬ ИТОГИ" (Версия 12.1) ===
+            // ==========================================================
+            document.getElementById('show-results-btn').addEventListener('click', function() {
+                const sidebar = document.querySelector('.results-sidebar');
+                const resultsList = document.getElementById('results-list');
+                
+                if (this.textContent === "Показать итоги") {
+                    const allStudentCards = document.querySelectorAll('#student-grid-main .student-card');
+                    resultsList.innerHTML = '';
+                    const studentData = [];
+
+                    allStudentCards.forEach(card => {
+                        studentData.push({
+                            name: card.querySelector('h4').textContent,
+                            score: parseInt(card.querySelector('.score-display').textContent), 
+                            read: parseInt(card.dataset.readCount), 
+                            speak: parseInt(card.dataset.speakCount),
+                            help: parseInt(card.dataset.helpCount)
+                        });
+                    });
+
+                    studentData.sort((a, b) => b.score - a.score); 
+                    
+                    studentData.forEach(student => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `${student.name} <span>${student.score} б. (📖${student.read} 🗣️${student.speak} ❓${student.help})</span>`;
+                        resultsList.appendChild(li);
+                    });
+                    
+                    sidebar.style.display = 'block';
+                    this.textContent = "Скрыть итоги";
+                } else {
+                    sidebar.style.display = 'none';
+                    this.textContent = "Показать итоги";
+                }
+            });
+            
+            // --- 7. "МЕЛОВАЯ ДОСКА" ---
+            const chalkboardModal = document.getElementById('chalkboard-modal');
+            canvas = document.getElementById('chalkboard-canvas');
+            ctx = canvas.getContext('2d');
+            
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                canvas.width = container.clientWidth;
+                canvas.height = container.clientHeight;
+                ctx.fillStyle = '#3a5a40'; 
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                if (currentClassId) {
+                    const classData = appData.classes[currentClassId];
+                    if (classData && classData.chalkboardData) {
+                        const img = new Image();
+                        img.src = classData.chalkboardData;
+                        img.onload = () => { ctx.drawImage(img, 0, 0); }
+                    }
+                }
+            }
+
+            function getMousePos(evt) {
+                const rect = canvas.getBoundingClientRect();
+                return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+            }
+            function getTouchPos(evt) {
+                const rect = canvas.getBoundingClientRect();
+                return { x: evt.touches[0].clientX - rect.left, y: evt.touches[0].clientY - rect.top };
+            }
+
+            function startDrawing(e) {
+                isDrawing = true;
+                const pos = e.touches ? getTouchPos(e) : getMousePos(e);
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+            }
+            
+            function draw(e) {
+                if (!isDrawing) return;
+                e.preventDefault();
+                const pos = e.touches ? getTouchPos(e) : getMousePos(e);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.strokeStyle = chalkColor;
+                ctx.lineWidth = chalkWidth;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+            }
+            
+            function stopDrawing() { isDrawing = false; ctx.beginPath(); }
+
+            document.getElementById('show-chalkboard-btn').addEventListener('click', () => {
+                chalkboardModal.style.display = 'flex';
+                resizeCanvas();
+            });
+            
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            canvas.addEventListener('touchstart', startDrawing);
+            canvas.addEventListener('touchmove', draw);
+            canvas.addEventListener('touchend', stopDrawing);
+            window.addEventListener('resize', resizeCanvas); 
+
+            document.getElementById('chalk-tool').addEventListener('click', function() {
+                chalkColor = '#FFFFFF'; chalkWidth = 5;
+                this.classList.add('active');
+                document.getElementById('eraser-tool').classList.remove('active');
+            });
+            document.getElementById('eraser-tool').addEventListener('click', function() {
+                chalkColor = '#3a5a40'; chalkWidth = 20;
+                this.classList.add('active');
+                document.getElementById('chalk-tool').classList.remove('active');
+            });
+            document.getElementById('clear-chalkboard-btn').addEventListener('click', () => {
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                if (currentClassId) {
+                    appData.classes[currentClassId].chalkboardData = null;
+                    saveAppData();
+                }
+            });
+
+            // --- 8. ИИ-АССИСТЕНТ ---
+            document.getElementById('ai-assistant-btn').addEventListener('click', () => {
+                window.open('https://gemini.google.com', '_blank');
+            });
+
+            // --- 9. ЗАКРЫТИЕ МОДАЛЬНЫХ ОКОН ---
+            document.querySelectorAll('.modal-close-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const modalId = btn.dataset.modalId;
+                    document.getElementById(modalId).style.display = 'none';
+                    if (modalId === 'lesson-modal') {
+                        document.getElementById('video-player-container').innerHTML = '<span>Медиа появится здесь...</span>';
+                    }
+                    if (modalId === 'chalkboard-modal') {
+                        appData.classes[currentClassId].chalkboardData = canvas.toDataURL();
+                        saveAppData();
+                    }
+                });
+            });
+            document.getElementById('create-class-modal').addEventListener('click', (e) => {
+                if (e.target.id === 'create-class-modal') e.target.style.display = 'none';
+            });
+             document.getElementById('paste-list-modal').addEventListener('click', (e) => {
+                if (e.target.id === 'paste-list-modal') e.target.style.display = 'none';
+            });
+            
+            // --- 10. ИСПРАВЛЕНИЕ: ТАЙМЕР ---
+            function updateTimerDisplay() {
+                if (remainingSeconds < 0) remainingSeconds = 0;
+                const minutes = Math.floor(remainingSeconds / 60);
+                const seconds = remainingSeconds % 60;
+                if (timerDisplay) {
+                   timerDisplay.textContent = (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+                }
+            }
+            
+            document.getElementById('start-timer-btn').addEventListener('click', () => {
+                clearInterval(timerInterval); 
+                remainingSeconds = parseInt(document.getElementById('timer-input').value) * 60; 
+                if (isNaN(remainingSeconds)) remainingSeconds = 45 * 60;
+                timerDisplay.style.color = "#f1c40f";
+                updateTimerDisplay(); 
+                timerInterval = setInterval(() => {
+                    remainingSeconds--;
+                    updateTimerDisplay();
+                    if (remainingSeconds <= 0) {
+                        clearInterval(timerInterval);
+                        timerDisplay.style.color = "red"; 
+                    }
+                }, 1000); 
+            });
+            document.getElementById('reset-timer-btn').addEventListener('click', () => {
+                clearInterval(timerInterval);
+                remainingSeconds = parseInt(document.getElementById('timer-input').value) * 60; 
+                updateTimerDisplay();
+                timerDisplay.style.color = "#f1c40f"; 
+            });
+
+            // --- 11. НАЧАЛЬНЫЙ ЗАПУСК ---
+            loadAppData();
+            renderLobby();
+        });
+    </script>
+</body>
+</html>
